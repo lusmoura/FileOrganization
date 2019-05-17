@@ -1,14 +1,15 @@
-/* BACKLOG
-    - fazer op6
-*/
+/* Execução principal */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include "options.h"
-#include "utils.h"
-#include "list.h"
+#include "../include/registers.h"
+#include "../include/options.h"
+#include "../include/header.h"
+#include "../include/utils.h"
+#include "../include/list.h"
+
 
 int main(int argc, char* argv[]) {
 	int op, times;
@@ -56,7 +57,12 @@ int main(int argc, char* argv[]) {
 			destroyList(l);
 			break;
 		case 6:
-            // fazer
+            scanf("%d\n", &times);
+			l = createList();
+			
+			op6(fileName, times, l);	
+			
+			destroyList(l);
 			break;
 
 		default:

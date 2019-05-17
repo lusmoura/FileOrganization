@@ -1,8 +1,12 @@
+/* Lista: declaração e funções associadas*/
+
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
-#include "list.h"
+#include "../include/list.h"
+
+char lixo = '@';
 
 /*------------------------------ Create Node ------------------------------*/
 node* createNode(int size, int64_t offset) {
@@ -97,10 +101,10 @@ node* removeList(list* l, int size) {
         prev->next = currNode->next;
         l->size--;
     } 
-    
+
     // salva posição do nó anterior
-    if(currNode->next == NULL) currNode->prev = prev->offset;
-    
+    if(currNode != NULL && currNode->next == NULL && prev != NULL) currNode->prev = prev->offset;
+
     return toBeRemoved;
 }
 

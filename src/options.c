@@ -1,19 +1,113 @@
+/* Opções: declaração e funções associadas*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include "options.h"
-#include "utils.h"
-#include "list.h"
+#include "../include/options.h"
 
 /*---------------------------------- OP6 ----------------------------------*/
-void op6(){
-    // so remover e inserir
+void op6(char* fileName, int times, list* l){
+    // abre arquivo e checa se há erro
+	FILE* input = fopen(fileName, "rb+");
+
+	if(input == NULL) {
+		printf("Falha no processamento do arquivo.\n");
+		return;
+	}
+
+	// lê o header do arquivo binário e checha se há erro
+	header* h = readHeader(input);
+	
+    if(h == NULL || h->status == '0') {
+		printf("Falha no processamento do arquivo.\n");
+		if(h != NULL) free(h);
+		return;	
+	}
+
+	// atualiza status do header e cria lista de registros removidos
+	updateHeader(input, h, '0');
+	createRemovedList(input, l, h->topoLista);
+
+	int filesize = fileSize(input);
+	char searchField[30] = "";
+	char searchValue[200] = "";
+	char newField[30] = "";
+	char newValue[200] = "";
+	bool found = false;
+	int numRegs = 0;
+	
+	// executa os n testes
+    for(int i = 0; i < times; i++) {
+		filesize = fileSize(input);
+		rewind(input);
+		
+		// le dados busca
+		scanf("%s", searchField);
+		scan_quote_string(searchValue);
+
+		// le dados atualização
+		scanf("%s ", newField);
+		scan_quote_string(newValue);
+
+		// percorre arquivo buscando registros para atualizar
+		while(ftell(input) < filesize) {
+			int pos = ftell(input);
+			// le registro
+			reg* r = readRegister(input, ftell(input), &numRegs);
+			
+			if(r == NULL) continue;
+			
+			// busca registro
+			found = searchRegister(r, h, searchField, searchValue);
+			
+			// se encontrou, checa se houve alteração no tamanho
+			if(found == true) {
+				int prevSize = r->tamanhoRegistro;
+				// atualiza registro
+				r = updateRegister(r, h, newField, newValue);
+				
+				// tamanho menor ou igual apenas atualiza na mesma posição
+				if(r->tamanhoRegistro <= prevSize) {
+					insertInPos(input, r, pos, prevSize);
+				// tamanho maior, insere na lista de removidos, remove fisicamente e reinsere 
+				} else {
+					insertList(l, prevSize, pos);
+					removeOneRegister(input, pos, prevSize, -1);
+					insertRegister(input, r, l);
+					// caso a inserção tenha ocorrido no final do arquivo, atualiza-se o tamanho
+					filesize = ftell(input);
+				}
+
+				if(searchField[0] == 'i') {
+					if(r != NULL) free(r);
+					break;
+				}
+			}
+		
+			if(r != NULL) free(r);
+		}
+    }
+
+	// atualiza encadeamento
+	updateLink(input, l);
+	
+	// atualiza status e encadeamento no header 
+	if(l->size == 0) h->topoLista = -1;
+	else h->topoLista = l->begin->next->offset;
+	updateHeader(input, h, '1');
+    
+	// imprime arquivo
+	binarioNaTela1(input);
+
+	if(h != NULL) free(h);
+    if(input != NULL) fclose(input);
+    return;
 }
 
 /*---------------------------------- OP5 ----------------------------------*/
 void op5(char* fileName, int times, list* l){
-    // abre aquivo e checa se há erro
+    // abre arquivo e checa se há erro
 	FILE* input = fopen(fileName, "rb+");
 
 	if(input == NULL) {
@@ -32,7 +126,7 @@ void op5(char* fileName, int times, list* l){
     
 	// atualiza status do header e cria lista de registros removidos
 	updateHeader(input, h, '0');
-	createRemovedList(input, l, h);
+	createRemovedList(input, l, h->topoLista);
 
 	int id = 0;
 	double salario;
@@ -71,12 +165,15 @@ void op5(char* fileName, int times, list* l){
     
 	// imprime arquivo
 	binarioNaTela1(input);
+
+	if(h != NULL) free(h);
+    if(input != NULL) fclose(input);
     return;
 }
 
 /*---------------------------------- OP4 ----------------------------------*/
 void op4(char* fileName, int times, list* l) {
-    // abre aquivo e checa se há erro
+    // abre arquivo e checa se há erro
     FILE* input = fopen(fileName, "rb+");
 
 	if(input == NULL) {
@@ -97,7 +194,7 @@ void op4(char* fileName, int times, list* l) {
     updateHeader(input, h, '0');
     
     // inicializa lista de removidos com registros que já vem removidos no arquivo
-    createRemovedList(input, l, h);\
+    createRemovedList(input, l, h->topoLista);
     
     int filesize = fileSize(input);
     int access = 0;
@@ -139,8 +236,9 @@ void op4(char* fileName, int times, list* l) {
 	    }
     }
     
-    // remove os registros fisicamente de acordo à lista
-	removeRegisters(input, l, h);
+    // remove os registros fisicamente de acordo à lista e atualiza encadeamento no arquivo
+	removeAllRegisters(input, l, h);
+	updateLink(input, l);
 
     // atualiza o status do header no arquivo
     updateHeader(input, h, '1');
@@ -155,7 +253,7 @@ void op4(char* fileName, int times, list* l) {
 
 /*---------------------------------- OP3 ----------------------------------*/
 void op3(char* fileName, char* fieldName, char* value){
-	// abre aquivo e checa se há erro
+	// abre arquivo e checa se há erro
 	FILE* input = fopen(fileName, "rb");
 
 	if(input == NULL) {
@@ -217,7 +315,7 @@ void op3(char* fileName, char* fieldName, char* value){
 /*---------------------------------- OP2 ----------------------------------*/
 void op2(char* fileName){
 	
-	// abre aquivo e checa se há erro
+	// abre arquivo e checa se há erro
 	FILE* input = fopen(fileName, "rb");
 
 	if(input == NULL) {
@@ -271,7 +369,7 @@ void op2(char* fileName){
 /*---------------------------------- OP1 ----------------------------------*/
 void op1(char* fileName){
 	
-	// abre aquivos e checa se há erro
+	// abre arquivos e checa se há erro
 	FILE* input = fopen(fileName, "r");
 	FILE* output = fopen("arquivoTrab1.bin", "wb");
 

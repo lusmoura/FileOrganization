@@ -1,5 +1,5 @@
 all:
-	gcc list.c utils.c options.c main.c -Wall -o main
+	gcc src/*.c -I include/ -o main -g -Wall
 
 main:
 	gcc main.c -o main
@@ -16,5 +16,8 @@ list:
 mem:
 	valgrind --leak-check=full ./main
 
+zip:
+	zip -r trab2.zip * "*.zip"
+	
 run:
 	./main

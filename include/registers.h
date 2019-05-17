@@ -1,24 +1,9 @@
-#ifndef UTILS_H
-#define UTILS_H
+#ifndef REGISTERS_H
+#define REGISTERS_H
 
-#define pageSize 32000
-#include <stdint.h>
+#include "header.h"
+#include "utils.h"
 #include "list.h"
-
-/*	Struct Cabeçalho  */
-/*
-		- char status - indicador da consistência do arquivo
-		- int topoLista - byte offset
-		- char tags[] = vetor de letras que indicam as tags
-		- char campos[][] = vetor de strings de tamanho 4 que tem a descrição do campo
-*/
-typedef struct _header {
-	char status;
-	int64_t topoLista;
-	char tags[5];
-	char campos[5][40];
-} header;
-
 
 /*	Struct Registro  */
 /*		
@@ -45,47 +30,6 @@ typedef struct _reg {
 	int tamCargoServidor;
 	char cargoServidor[300];
 } reg;
-
-
-
-/*----------------------------- Create Header -----------------------------*/
-/* Le header de um arquivo csv e o escreve num arquivo binario			   */
-/*																		   */
-/* Parametros: FILE* input - arquivo a partir do qual sera lido o header   */
-/*			   FILE* output - arquivo no qual sera escrito o header        */
-/* Retorno: header* - header lido e criado							       */
-header* createHeader(FILE* input, FILE* output);
-
-/*------------------------------ Read Header ------------------------------*/
-/* Le header de um arquivo binario e o armazena na struct header		   */
-/*																		   */
-/* Parametros: FILE* input - arquivo a partir do qual sera lido o header   */
-/* Retorno: header* - header lido e criado							   */
-header* readHeader(FILE* input);
-
-/*------------------------------ Update Header ----------------------------*/
-/* Atualiza o header e escreve no arquivo, mudando status quando o arquivo */
-/* começa a ser alterado e tambem quando seu processamento acaba		   */
-/*																		   */
-/* Parametros: FILE* input - arquivo no qual o header deve ser escrito     */
-/*			   header* h - header a ser atualizado						   */
-/*			   char status - status para o qual o header será atualizado  */
-void updateHeader(FILE* input, header* h, char status);
-
-/*------------------------------- Write Header ----------------------------*/
-/* Escreve o header no arquivo binario									   */
-/*																		   */
-/* Parametros: FILE* input - arquivo no qual o header deve ser escrito     */
-/*			   header* h - header a ser escrito						   */
-void writeHeader(FILE* input, header* h);
-
-/*------------------------------ Print Header -----------------------------*/
-/* Imprime valores armazenados no header  								   */
-/*																		   */
-/* Parametros: header* h - header a ser impresso   						   */
-void printHeader(header* h);
-
-
 
 /*---------------------------- Create Register ----------------------------*/
 /* Recebe dados e, com eles, cria um registro 							   */
@@ -136,14 +80,14 @@ int searchRegister(reg* r, header* h, char* fieldName, char* value);
 /*			   int op - opcao do formato de impressao					   */
 void printRegister(reg* r, header* h, int op);
 
-/*--------------------------- Remove Registers ----------------------------*/
+/*-------------------------- Remove All Registers --------------------------*/
 /* Remove fisicamente os registros indicados na lista, alterando os campos */
 /* de removido, encademento lista e preenchendo o registro com @ 		   */
 /*																		   */
 /* Parametros: FILE* input - arquivo que será alterado					   */
 /* 			   list* l - lista ordenada com os registros removidos 		   */
 /*			   header* h - header do arquivo 							   */
-void removeRegisters(FILE* input, list* l, header* h);
+void removeAllRegisters(FILE* input, list* l, header* h);
 
 /*---------------------------- Insert Register ----------------------------*/
 /* Insere registros no arquivo nas posições livres indicadas na lista de   */
@@ -154,30 +98,32 @@ void removeRegisters(FILE* input, list* l, header* h);
 /* 			   list* l - lista ordenada com os registros removidos 		   */
 void insertRegister(FILE* input, reg* r, list* l);
 
-
-
-/*--------------------------------- Size ----------------------------------*/
-/* Calcula tamanho de um arquivo sem alterar a posicao do seu ponteiro	   */
+/*-------------------------- Update Registers -----------------------------*/
+/* Atualiza valor de um registro de acordo às especificações 			   */
 /*																		   */
-/* Parametros: FILE* fp - arquivo para qual o tamanho sera calculado	   */
-/* Retorno: int - tamanho do arquivo									   */
-int fileSize(FILE* fp);
+/* Parametros: reg* r - registro a ser atualizado						   */
+/*			   header* h - header do arquivo 							   */
+/* 			   char* newField - campo que será atualizado				   */
+/* 			   char* newValue - novo valor que será escrito				   */
+reg* updateRegister(reg* r, header* h, char* newField, char* newValue);
 
-/*-------------------------- Create Removed List --------------------------*/
-/* Cria lista de removidos a partir dos registros que já estão removidos no*/
-/* arquivo de entrada.													   */
+/*----------------------------- Insert In Pos -----------------------------*/
+/* Insere um registro no arquivo na posição especificada				   */
 /*																		   */
-/* Parametros: FILE* fp - arquivo do qual serão lidos os registros   	   */
-/* 			   list* l - lista na qual serão inseridos os registros   	   */
-/*			   header* h - cabeçalho do arquivo							   */
-void createRemovedList(FILE* input, list* l, header* h);	
+/* Parametros: FILE* input - arquivo que será alterado					   */
+/*			   reg* r - registro a ser inserido							   */
+/* 			   int pos - posição na qual o registro deve ser escrito	   */
+/* 			   int prevSize - tamanho do espaço disponível no qual será escrito*/
+void insertInPos(FILE* input, reg* r, int pos, int prevSize);
 
-/*--------------------------- Binario na Tela -----------------------------*/
-/* Função fornecida pelo monitor da matéria 							   */
-void binarioNaTela1(FILE *ponteiroArquivoBinario);
+/*------------------------- Remove One Register ---------------------------*/
+/* Remove fisicamente um registro que está na posição especificada		   */
+/*																		   */
+/* Parametros: FILE* input - arquivo que será alterado					   */
+/* 			   int pos - posição do registro que será removido			   */
+/* 			   int prevSize - tamanho do espaço disponível				   */
+/*			   int nextPos - posição do próximo removido 				   */
+void removeOneRegister(FILE* input, int pos, int prevSize, int nextPos);
 
-/*--------------------------- Scan Quote String ---------------------------*/
-/* Função fornecida pelo monitor da matéria 							   */
-void scan_quote_string(char *str);
 
 #endif

@@ -1,4 +1,4 @@
-/* Arquivo com funcoes secundarias utilizadas pelas opções */
+/* Registro: declaração e funções associadas*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,131 +6,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <ctype.h>
-#include "utils.h"
-#include "list.h"
-
-char lixo = '@';
-
-/*----------------------------- Create Header -----------------------------*/
-header* createHeader(FILE* input, FILE* output) {
-	
-	header* h = calloc(1, sizeof(header));
-	if(h == NULL) return NULL;
-
-	char tag[5] = {'i', 's', 't', 'n', 'c'};
-	char desc[5][40];
-	
-	// le a descricao de cada campo que termina com virgula e o \n
-	for(int i = 0; i < 4; i++) {
-		fscanf(input, "%[^,]", desc[i]);
-		fgetc(input);
-	}
-
-	// le a descricao do ultimo campo e o \n
-	fscanf(input, "%[^\r\n]", desc[4]);
-	fgetc(input);
-
-	// escreve o status e o topo lista
-	h->status = '1';
-	h->topoLista = -1;
-	
-	// escreve cada tag e sua descrição, preenchendo o lixo com '@'
-	for(int i = 0; i < 5; i++) {
-		h->tags[i] = tag[i];
-		
-		strcpy(h->campos[i], desc[i]);
-		int lastPos = strlen(desc[i]) + 1;
-		
-		while(lastPos < 40) {
-			h->campos[i][lastPos] = lixo;
-			lastPos++;
-		}
-	}
-
-	// escreve header no arquivo
-	writeHeader(output, h);
-
-	return h;
-}
-
-/*------------------------------ Read Header ------------------------------*/
-header* readHeader(FILE* input){
-	header* h = calloc(1, sizeof(header));
-
-	// le status e topoLista do header
-	fread(&h->status, sizeof(char), 1, input);
-	fread(&h->topoLista, sizeof(int64_t), 1, input);
-
-	// le cada tag e cada descricao (de tamanho fixo 40 bytes)
-	for(int i = 0; i < 5; i++) {
-		fread(&h->tags[i], sizeof(char), 1, input);
-		fread(h->campos[i], sizeof(char), 40, input);
-		h->campos[i][40] = '\0';
-		
-		// coloca um \0 no final da string
-		for(int j = 0; j <= 40 && h->campos[i][j] != '\0'; j++) {
-			if(h->campos[i][j] == '@') h->campos[i][j] = '\0';
-		}
-		
-	}
-	
-	return h;
-}
-
-/*----------------------------- Write Header ------------------------------*/
-void writeHeader(FILE* input, header* h) {	
-
-	// escreve no arquivo o status e o topo lista do header
-	fwrite(&(h->status), 1, sizeof(h->status), input);
-	fwrite(&(h->topoLista), 1, sizeof(h->topoLista), input);
-
-	// escreve cada tag e sua descrição, preenchendo o lixo com '@'
-	for(int i = 0; i < 5; i++) {
-		fwrite(&(h->tags[i]), 1, sizeof(char), input);
-		fwrite(&(h->campos[i]), 1, sizeof(h->campos[i]), input);
-	}
-
-	// preenche o resto da página com '@'
-	while(ftell(input) < pageSize){
-		fwrite(&lixo, 1, sizeof(char), input);
-	}
-}
-
-/*------------------------------ Update Header --------------------------*/
-void updateHeader(FILE* input, header* h, char status) {
-	// salva posição atual do ponteiro no arquivo
-	int64_t pos = ftell(input);
-	
-	// altera status do header
-	h->status = status;
-	
-	// volta ponteiro para inicio do arquivo, onde o header é escrito
-	rewind(input);
-	writeHeader(input, h);
-
-	// ponteiro retorna à posição original
-	fseek(input, pos, SEEK_SET);
-	
-	return;
-}
-
-/*------------------------------ Print Header -----------------------------*/
-void printHeader(header* h){
-	// mensagem de erro caso o header seja nulo
-	if(h == NULL) {
-		printf("Header nao criado ou com erro\n");
-		return;
-	}
-
-	// impressao de cada campo do header
-	printf("Status: %c\n", h->status);
-	printf("Topo: %ld\n", h->topoLista);
-
-	for(int i = 0; i < 5; i++) {
-		printf("Tag %d: %c\n", i+1, h->tags[i]);
-		printf("Campo %d: %s\n", i+1, h->campos[i]);
-	}
-}
+#include "../include/registers.h"
 
 /*---------------------------- Create Register ----------------------------*/
 reg* createRegister(int id, double salario, char* telefone, char* nome, char* cargo) {
@@ -188,7 +64,7 @@ reg* readRegister(FILE* input, int offset, int* numRegs) {
 
 	// le campos de tamanho variado, para isso checa a tag e se o ponteiro ja
 	// chegou ao final do registro
-	while(ftell(input) < offset + r->tamanhoRegistro) {
+	while(ftell(input) < fileSize(input) && ftell(input) < offset + r->tamanhoRegistro) {
 		
 		fread(&tam, sizeof(int), 1, input);
 		fread(&tag, sizeof(char), 1, input);
@@ -267,7 +143,7 @@ void writeRegister(reg* r, FILE* output, int lastSize) {
 /*--------------------------- Search Register -----------------------------*/
 int searchRegister(reg* r, header* h, char* fieldName, char* value) {
 	if(r == NULL) return 0;
-
+    
 	// procura pelo campo certo a partir do qual sera feita a busca
 	if(fieldName[0] == h->tags[0]) {
 		// para o caso do id, transforma string em int
@@ -293,6 +169,25 @@ int searchRegister(reg* r, header* h, char* fieldName, char* value) {
 	}
 
 	return 0;
+}
+
+/*---------------------------- Insert In Pos ------------------------------*/
+void insertInPos(FILE* input, reg* r, int pos, int prevSize) {
+	// salva tamanho do registro
+	int currSize = r->tamanhoRegistro;
+	
+	// altera tamanho do registro, colocando o tamanho do espaço no qual ele será inserido
+	r->tamanhoRegistro = prevSize;
+	
+	// escreve no arquivo
+	fseek(input, pos, SEEK_SET);
+	writeRegister(r, input, 0);
+	
+	// preenche espaço com @
+	for(int i = 0; i < prevSize-currSize; i++)
+		fwrite(&lixo, sizeof(char), 1, input);
+
+	return;
 }
 
 /*--------------------------- Insert Register -----------------------------*/
@@ -327,23 +222,24 @@ void insertRegister(FILE* input, reg* r, list* l) {
 
 	// libera memória
 	if(removed != NULL) free(removed);
+	
     return;
 }
 
-/*--------------------------- Remove Register -----------------------------*/
-void removeRegisters(FILE* input, list* l, header* h) {
+/*------------------------ Remove All Registers ---------------------------*/
+void removeAllRegisters(FILE* input, list* l, header* h) {
 	// caso a lista esteja vazia, não é preciso remover nenhum registro
 	if(l->size == 0) return;
 	
 	node* currNode = l->begin->next; // ignora nó sentinela
-	char removed = '*';
+	// char removed = '*';
 	int64_t pos = currNode->offset;
 	int size = 0;
 	int64_t nextPos = -1;
 	
 	// altera topo lista do header
 	h->topoLista = pos;
-
+	
 	// percorre a lista de removidos, fazendo a remoção fisica
 	while(currNode != NULL) {
 		// salva dados a serem escritos
@@ -353,26 +249,39 @@ void removeRegisters(FILE* input, list* l, header* h) {
 		if(currNode->next != NULL) nextPos = currNode->next->offset;
 		else nextPos = -1;
 
-		// move ponteiro para posição a ser removida
-		fseek(input, pos, SEEK_SET); 
-		// escreve char que indica remoção
-		fwrite(&removed, sizeof(char), 1, input);
-		// pula o tamanho do registro
-		fseek(input, 4, SEEK_CUR);
-		// escreve o novo encadeamento lista
-		fwrite(&nextPos, sizeof(int64_t), 1, input);
-		
-		// preenche o resto do registro com @
-		for(int i = 0; i < size - 8; i++) {
-			fwrite(&lixo, sizeof(char), 1, input);
-		}
+		// remove fisicamente
+		removeOneRegister(input, pos, size, nextPos);
 
 		// checa proxima posição da lista
 		currNode = currNode->next;
-		nextPos = -1;
+		
 	}
-
+	
     return;
+}
+
+/*------------------------ Remove One Register ----------------------------*/
+void removeOneRegister(FILE* input, int pos, int prevSize, int nextPos) {
+	char removed = '*';
+
+	// move ponteiro para posição a ser removida
+	fseek(input, pos, SEEK_SET); 
+	
+	// escreve char que indica remoção
+	fwrite(&removed, sizeof(char), 1, input);
+	
+	// pula o tamanho do registro
+	fseek(input, 4, SEEK_CUR);
+	
+	// escreve o novo encadeamento lista
+	fwrite(&nextPos, sizeof(int64_t), 1, input);
+	
+	// preenche o resto do registro com @
+	for(int i = 0; i < prevSize - 8; i++) {
+		fwrite(&lixo, sizeof(char), 1, input);
+	}
+	
+	return;
 }
 
 /*--------------------------- Print Register ------------------------------*/
@@ -446,75 +355,33 @@ void printRegister(reg* r, header* h, int op) {
 	}
 }
 
-/*--------------------------------- Size ----------------------------------*/
-int fileSize(FILE* fp) {
-	int prevPos = ftell(fp);
-
-	// move ponteiro para o final do arquivo
-	fseek(fp, 0L, SEEK_END);
+/*-------------------------- Update Registers -----------------------------*/
+reg* updateRegister(reg* r, header* h, char* newField, char* newValue) {
+	if(r == NULL) return NULL;
+	reg* newReg;
 	
-	// salva posicao dele
-	int fileSize = ftell(fp);
-
-	// move ponteiro para ignorar pagina de cabecalho
-	fseek(fp, prevPos, SEEK_SET);
-	
-	return fileSize;
-}
-
-/*-------------------------- Create Removed List --------------------------*/
-void createRemovedList(FILE* input, list* l, header* h) {
-	int pos = h->topoLista;
-	int numRegs = 0;
-
-	// percorre arquivo por meio do encadeamento lista, inserindo os registros na lista
-	while(pos != -1) {
-		// move ponteiro para a próxima posição
-		fseek(input, pos, SEEK_SET);
-		// lê registro e o insere no final da lista
-		reg* r = readRegister(input, ftell(input), &numRegs);
-		insertListEnd(l, r->tamanhoRegistro, pos);
-		pos = r->encadeamentoLista;
+	// atualiza o id, caso esse seja o campo especificado
+	if(newField[0] == h->tags[0]){
+		int id;
+		sscanf(newValue, "%d", &id);
+		newReg = createRegister(id, r->salarioServidor, r->telefoneServidor, r->nomeServidor, r->cargoServidor);
+	// atualiza o salario, caso esse seja o campo especificado
+	} else if(newField[0] == h->tags[1]) {
+		double salario;
+		if(!strcmp(newValue, "")) salario = -1;
+		else sscanf(newValue, "%lf", &salario);
+		newReg = createRegister(r->idServidor, salario, r->telefoneServidor, r->nomeServidor, r->cargoServidor);
+	// atualiza o telefone, caso esse seja o campo especificado
+	} else if(newField[0] == h->tags[2]) {
+		newReg = createRegister(r->idServidor, r->salarioServidor, newValue, r->nomeServidor, r->cargoServidor);
+	// atualiza o nome, caso esse seja o campo especificado
+	} else if(newField[0] == h->tags[3]) {
+		newReg = createRegister(r->idServidor, r->salarioServidor, r->telefoneServidor, newValue, r->cargoServidor);
+	// atualiza o cargo, caso esse seja o campo especificado
+	} else if(newField[0] == h->tags[4]) {
+		newReg = createRegister(r->idServidor, r->salarioServidor, r->telefoneServidor, r->nomeServidor, newValue);
 	}
 	
-	return;
-}
-
-/*--------------------------- Binario na Tela -----------------------------*/
-void binarioNaTela1(FILE *ponteiroArquivoBinario) {
-	unsigned char *mb;
-	unsigned long i;
-	size_t fl;
-	fseek(ponteiroArquivoBinario, 0, SEEK_END);
-	fl = ftell(ponteiroArquivoBinario);
-	fseek(ponteiroArquivoBinario, 0, SEEK_SET);
-	mb = (unsigned char *) malloc(fl);
-	fread(mb, 1, fl, ponteiroArquivoBinario);
-	for(i = 0; i < fl; i += sizeof(unsigned char)) {
-		printf("%02X ", mb[i]);
-		if((i + 1) % 16 == 0)	printf("\n");
-	}
-	free(mb);
-}
-
-/*--------------------------- Scan Quote String ---------------------------*/
-void scan_quote_string(char *str) {
-	char R;
-
-	while((R = getchar()) != EOF && isspace(R)); // ignorar espaços, \r, \n...
-
-	if(R == 'N' || R == 'n') { // campo NULO
-		getchar(); getchar(); getchar(); // ignorar o "ULO" de NULO.
-		strcpy(str, ""); // copia string vazia
-	} else if(R == '\"') {
-		if(scanf("%[^\"]", str) != 1) { // ler até o fechamento das aspas
-			strcpy(str, "");
-		}
-		getchar(); // ignorar aspas fechando
-	} else if(R != EOF){ // vc tá tentando ler uma string que não tá entre aspas! Fazer leitura normal %s então...
-		str[0] = R;
-		scanf("%s", &str[1]);
-	} else { // EOF
-		strcpy(str, "");
-	}
+	if(r != NULL) free(r);
+	return newReg;
 }

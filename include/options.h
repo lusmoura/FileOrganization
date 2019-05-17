@@ -1,6 +1,9 @@
 #ifndef OPTIONS_H
 #define OPTIONS_H
 
+#include "registers.h"
+#include "header.h"
+#include "utils.h"
 #include "list.h"
 
 /*------------------------------- op1 -------------------------------------*/
@@ -45,7 +48,13 @@ void op4(char* fileName, int times, list* l);
 /* 			   list* l - lista de removidos                                */
 void op5(char* fileName, int times, list* l);
 
-//
-void op6();
+/*------------------------------- op6 -------------------------------------*/
+/* Faz as operacoes referentes a opcao 6, isto eh, busca um registro */
+/* registro com esses dados. Em seguida o insere numa posição disponível   */ 
+/*																		   */
+/* Parametros: char* fileName - nome do arquivo a ser aberto               */
+/* 			   int times - quantidade de registros a serem atualizados     */
+/* 			   list* l - lista de removidos                                */
+void op6(char* fileName, int times, list* l);
 
 #endif
