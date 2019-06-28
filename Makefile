@@ -13,11 +13,14 @@ options:
 list:
 	gcc list.c -o list
 
+clear:
+	cp binarios/arquivos-binarios/* binarios/
+
 mem:
 	valgrind --leak-check=full ./main
 
 zip:
-	zip -r trab2.zip * "*.zip"
+	zip -r trab4.zip src/*.c include/*.h Makefile
 	
 run:
 	./main
